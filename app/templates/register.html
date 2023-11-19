@@ -5,14 +5,19 @@
         <div class="col-md-6">
             <h2 class="mb-3">Register</h2>
             <form method="post" action="{{ url_for('register') }}">
+                {% if error_msg %}
+                    <div class="alert alert-danger text-center p-1">
+                        <strong>Username already exists!</strong> </br>
+                    </div>
+                {% endif %}
                 {{ form.hidden_tag() }}
                 <div class="form-group">
-                    {{ form.username.label }}
-                    {{ form.username }}
+                    {{ form.username.label(class="form-control-label") }}
+                    {{ form.username(class="form-control") }}
                 </div>
                 <div class="form-group">
-                    {{ form.password.label }}
-                    {{ form.password }}
+                    {{ form.password.label(class="form-control-label") }}
+                    {{ form.password(class="form-control") }}
                 </div>
                 <div></div>
                 <button type="submit" class="btn btn-primary">Register</button>

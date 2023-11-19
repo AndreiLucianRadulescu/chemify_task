@@ -40,7 +40,7 @@ def login():
 @app.route("/")
 def home():
     if current_user.is_authenticated:
-        return ("You're now logged in!")
+        return render_template("home.html", username=current_user.username, tasks=current_user.tasks)
     
     form = LoginForm()
     return render_template("register.html", form=form)
@@ -59,8 +59,11 @@ def register():
 
         existing_user = User.query.filter_by(username=username).first()
         if existing_user:
-            flash('Username is already taken', 'danger')
-            return redirect(url_for('register'))
+            return render_template(
+                "register.html",
+                form=form,
+                error_msg=True
+            )
         
         hashed_password = generate_password_hash(password, method='sha256')
         new_user = User(username=username, hashed_password=hashed_password)
