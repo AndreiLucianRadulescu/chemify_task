@@ -87,3 +87,50 @@ def api_create_task():
     except Exception as e:
         print(f"Error adding task: {e}")
         return jsonify({'message': 'Error adding task'}), 500
+
+@app.route('/api/delete_task/<int:task_id>', methods=['DELETE'])
+@jwt_required()
+def api_delete_task(task_id):
+    try:
+        user_id = get_jwt_identity()
+        user_obj = User.query.filter_by(id=user_id).first()
+
+        task_to_delete = Task.query.filter_by(id=task_id).first()
+        if not task_to_delete:
+            return jsonify({'message': 'Task not found'}), 404
+        
+        if task_to_delete.user_id != user_obj:
+            return jsonify({'message': 'Unauthorized'}), 401
+
+        db.session.delete(task_to_delete)
+        db.session.commit()
+
+        return jsonify({'message': 'Task deleted successfully'}), 200
+    except Exception as e:
+        print(f"Error deleting task: {e}")
+        return jsonify({'message': 'Error deleting task'}), 500
+    
+@app.route('/api/update_task/<int:task_id>', methods=['PATCH'])
+@jwt_required()
+def api_update_task(task_id):
+    try:
+        user_id = get_jwt_identity()
+        user_obj = User.query.filter_by(id=user_id).first()
+
+        task_to_update = Task.query.filter_by(id=task_id).first()
+        if not task_to_update:
+            return jsonify({'message': 'Task not found'}), 404
+        
+        if task_to_update.user_id != user_obj:
+            return jsonify({'message': 'Unauthorized'}), 401
+        
+        data = request.get_json()
+        task_to_update.status = TaskStatus(int(data.get('status', task_to_update.status)))
+        task_to_update.title = data.get('title', task_to_update.title)
+
+        db.session.commit()
+
+        return jsonify({'message': 'Task updated successfully'}), 200
+    except Exception as e:
+        print(f"Error updating task: {e}")
+        return jsonify({'message': 'Error updating task'}), 500
