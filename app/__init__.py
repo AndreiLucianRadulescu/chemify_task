@@ -21,7 +21,7 @@ if __name__ == '__main__':
     app.run(debug=True)
 
 from app import routes
-from app.models import User, Task, TaskStatus
+from app.models import User, Task, TaskStatus, TaskHistory
 
 @app.route('/api/register', methods=['POST'])
 def api_register():
@@ -102,7 +102,11 @@ def api_delete_task(task_id):
         if task_to_delete.user_id != user_obj:
             return jsonify({'message': 'Unauthorized'}), 401
 
+        new_task_history = TaskHistory(user_id=user_id, task_id = task_id)
+        db.session.add(new_task_history)
+
         db.session.delete(task_to_delete)
+
         db.session.commit()
 
         return jsonify({'message': 'Task deleted successfully'}), 200

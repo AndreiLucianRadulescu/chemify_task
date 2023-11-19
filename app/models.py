@@ -3,6 +3,7 @@ from flask_login import UserMixin
 from app import db, login
 from sqlalchemy.orm import relationship, Mapped
 from werkzeug.security import check_password_hash
+from sqlalchemy import DateTime, func
 
 class TaskStatus(Enum):
     PENDING = 0
@@ -41,3 +42,10 @@ class User(db.Model, UserMixin):
 
     def check_password(self, password):
         return check_password_hash(self.hashed_password, password)
+    
+
+class TaskHistory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    deleted_at = db.Column(db.DateTime, default=func.now())
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    task_id = db.Column(db.Integer, nullable=False)
