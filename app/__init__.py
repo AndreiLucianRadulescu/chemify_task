@@ -4,53 +4,86 @@ import os
 from dotenv import load_dotenv
 from flask_login import LoginManager
 from werkzeug.security import generate_password_hash
+from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
 
 load_dotenv()
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
+app.config['JWT_SECRET_KEY'] = os.getenv('SECRET_KEY')
 login = LoginManager(app)
 login.login_view = "login"
 db = SQLAlchemy(app)
+jwt = JWTManager(app)
 
 if __name__ == '__main__':
     app.run(debug=True)
 
 from app import routes
-from app.models import User
+from app.models import User, Task, TaskStatus
 
 @app.route('/api/register', methods=['POST'])
 def api_register():
-    data = request.json
-
-    username = data.get('username')
-    password = data.get('password')
-
-    if not username or not password:
-        return jsonify({'message': 'Username and password are required'}), 400
-
+    data = request.get_json()
+    username = data['username']
+    password = data['password']
     existing_user = User.query.filter_by(username=username).first()
+
     if existing_user:
-        return jsonify({'message': 'Username is already taken'}), 409
+        return jsonify({'message': 'Username already exists'}), 401
 
-    hashed_password = generate_password_hash(password, method='sha256')
-    new_user = User(username=username, hashed_password=hashed_password)
-
-    db.session.add(new_user)
-    db.session.commit()
-
-    return jsonify({'message': 'User created successfully'}), 201
-
+    new_user = User(username=username, hashed_password = generate_password_hash(password))
+    try:
+        db.session.add(new_user)
+        db.session.commit()
+        return jsonify({'message': 'User created successfully'}), 201
+    except:
+        return jsonify({'message': 'Username/password too long'}), 401
+    
 @app.route('/api/login', methods=['POST'])
 def api_login():
     data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
+    user = User.query.filter_by(username=data['username']).first()
 
-    user = User.query.filter_by(username=username).first()
+    if user and user.check_password(data['password']):
+        token = create_access_token(identity=user.id)
+        return jsonify(token=token), 200
+    else:
+        return jsonify({'message': 'Invalid credentials!'}), 401
+    
+@app.route('/api/get_tasks', methods=['GET'])
+@jwt_required()
+def api_get_tasks():
+    try:
+        user_id = get_jwt_identity()
+        tasks = Task.query.filter_by(id=user_id).all()
+        return jsonify(tasks=[task.dictionize() for task in tasks])
+    except Exception as e:
+        print(f"Error getting tasks for user {user_id}: {e}")
+        return jsonify({'message': 'Invalid or expired token'}), 401
+    
+@app.route('/api/create_task', methods=['POST'])
+@jwt_required()
+def api_create_task():
+    try:
+        user_id = get_jwt_identity()
+        data = request.get_json()
+        if 'status' in data:
+            status_code = int(data['status'])
+        else:
+            status_code = 0
 
-    if user and user.check_password(password):
-        return jsonify({'message': 'Login successful'}), 200
+        new_task = Task(
+            title=data.get('title'),
+            status=TaskStatus(status_code),
+            user_id=User.query.filter_by(id=user_id).first()
+        )
 
-    return jsonify({'message': 'Invalid credentials'}), 401
+        db.session.add(new_task)
+        db.session.commit()
+
+        return jsonify({'message': 'Task added successfully'}), 201
+    except Exception as e:
+        print(f"Error adding task: {e}")
+        return jsonify({'message': 'Error adding task'}), 500
